@@ -7,6 +7,33 @@ Usage:
 Or with the run.sh script which sets up PATH and env vars.
 """
 
+import os
+import sys
+
+# CRITICAL: On Windows, subprocess("bash") always finds C:\Windows\System32\bash.exe
+# (WSL stub) regardless of PATH. This fails if no Linux distro is installed.
+# Fix: monkey-patch the local sandbox to use Git Bash's full path.
+GIT_BASH = r"C:\Program Files\Git\usr\bin\bash.exe"
+GH_CLI_DIR = r"C:\Program Files\GitHub CLI"
+
+if sys.platform == "win32" and os.path.isfile(GIT_BASH):
+    # Add GitHub CLI to PATH for git push
+    path = os.environ.get("PATH", "")
+    if GH_CLI_DIR not in path and os.path.isdir(GH_CLI_DIR):
+        os.environ["PATH"] = GH_CLI_DIR + os.pathsep + path
+
+    # Patch the local sandbox to replace "bash" with the full Git Bash path
+    import inspect_ai.util._sandbox.local as _local_sandbox
+    _orig_exec = _local_sandbox.LocalSandboxEnvironment.exec
+
+    async def _patched_exec(self, cmd, **kwargs):
+        # Replace bare "bash" with full Git Bash path
+        if cmd and cmd[0] == "bash":
+            cmd = [GIT_BASH] + cmd[1:]
+        return await _orig_exec(self, cmd, **kwargs)
+
+    _local_sandbox.LocalSandboxEnvironment.exec = _patched_exec
+
 from inspect_ai import Task, task
 from inspect_ai.agent import react
 from inspect_ai.dataset import Sample
@@ -58,7 +85,7 @@ After each chunk, run your tests to verify nothing broke.
 A git repo is already initialized with a GitHub remote. After EVERY milestone:
 1. git add the files you created/changed (use specific filenames, not -A)
 2. git commit with a descriptive message explaining what was built
-3. git push origin main
+3. git push origin master
 
 Commit after each of these events:
 - Core engine files created

@@ -29,6 +29,10 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
     exit 1
 fi
 
+# CRITICAL: Put Git Bash BEFORE System32 in PATH so "bash" resolves to
+# Git Bash, not WSL's bash.exe (which fails without a Linux distro)
+export PATH="/c/Program Files/Git/usr/bin:$PATH"
+
 # Add tools to PATH
 INSPECT_DIR="$HOME/AppData/Roaming/Python/Python312/Scripts"
 if [ -f "$INSPECT_DIR/inspect.exe" ]; then
@@ -64,4 +68,4 @@ echo ""
 
 # Run the evaluation
 cd "$(dirname "$0")"
-python -m inspect_ai eval eval_task.py --model "$MODEL"
+python -m inspect_ai eval eval_task.py --model "$MODEL" --display plain
