@@ -16,15 +16,27 @@ import sys
 GIT_BASH = r"C:\Program Files\Git\usr\bin\bash.exe"
 GH_CLI_DIR = r"C:\Program Files\GitHub CLI"
 
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 if sys.platform == "win32" and os.path.isfile(GIT_BASH):
     # Add GitHub CLI to PATH for git push
     path = os.environ.get("PATH", "")
     if GH_CLI_DIR not in path and os.path.isdir(GH_CLI_DIR):
         os.environ["PATH"] = GH_CLI_DIR + os.pathsep + path
 
-    # Patch the local sandbox to replace "bash" with the full Git Bash path
+    # Patch the local sandbox to:
+    # 1. Replace bare "bash" with full Git Bash path (WSL fix)
+    # 2. Default working directory to the project folder (not temp dir)
     import inspect_ai.util._sandbox.local as _local_sandbox
+    import tempfile
     _orig_exec = _local_sandbox.LocalSandboxEnvironment.exec
+    _orig_init = _local_sandbox.LocalSandboxEnvironment.__init__
+
+    def _patched_init(self):
+        _orig_init(self)
+        # Override the temp directory with the project directory
+        # so the agent can see the spec file and git repo
+        self.directory = type('Dir', (), {'name': PROJECT_DIR, 'cleanup': lambda self: None})()
 
     async def _patched_exec(self, cmd, **kwargs):
         # Replace bare "bash" with full Git Bash path
@@ -32,6 +44,7 @@ if sys.platform == "win32" and os.path.isfile(GIT_BASH):
             cmd = [GIT_BASH] + cmd[1:]
         return await _orig_exec(self, cmd, **kwargs)
 
+    _local_sandbox.LocalSandboxEnvironment.__init__ = _patched_init
     _local_sandbox.LocalSandboxEnvironment.exec = _patched_exec
 
 from inspect_ai import Task, task
