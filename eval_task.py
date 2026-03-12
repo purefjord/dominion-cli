@@ -12,7 +12,7 @@ from inspect_ai.agent import react
 from inspect_ai.dataset import Sample
 from inspect_ai.model import CompactionSummary
 from inspect_ai.scorer import includes
-from inspect_ai.tool import bash, text_editor, memory
+from inspect_ai.tool import bash
 
 TASK_PROMPT = """\
 You are a senior software engineer. Your task is to implement a complete \
@@ -41,8 +41,6 @@ After completing each major milestone, write a progress file:
 Update PROGRESS.md after EVERY major step (new file created, card batch \
 implemented, bug fixed). This file survives compaction because it's on disk.
 
-Also use the memory() tool to save critical information that must survive \
-context compaction — file paths, function signatures, architectural decisions.
 
 ### Build Incrementally and Commit Often
 Do NOT try to build everything at once. Work in small, testable chunks:
@@ -131,12 +129,10 @@ def dominion_cli():
         solver=react(
             tools=[
                 bash(timeout=120),
-                text_editor(timeout=120),
-                memory(),  # lets the agent persist info across compaction
             ],
             compaction=CompactionSummary(
                 threshold=0.60,  # compact at 60% — before the "rot zone" (65-70%)
-                memory=True,     # warn agent to save to memory before compaction
+                memory=False,    # memory tool not available on Windows
                 instructions=(
                     "CRITICAL context to preserve in the summary:\n"
                     "- Read ./PROGRESS.md for the current build state\n"
